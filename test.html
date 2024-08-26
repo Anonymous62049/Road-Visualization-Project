@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>City Road Network</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+    <div id="map" style="width: 970px; height: 800px;"></div>
+    <div style="width: 100px; height: 50px; background-color: wheat;display: inline-block;" onclick="showNextRoad()"></div>
+    <label id="debugLbl" style="display: inline;"></label>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        var map = L.map('map').setView([-33.9130293,151.2312394], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 20,
+        }).addTo(map);
+
+        var edges;
+        const edgeMap = new Map();
+        var nodes;
+        // Load the edges JSON data
+        $.getJSON('edges.json', function(data) {
+            edges = data.features;
+            loadEdgeMap();
+        });
+        $.getJSON('nodes.json', function(data){
+            nodes = data.features
+        })
+        var index = 0;
+        const nextCoords = [];
+        function showNextRoad() {
+            if (edges && index < edges.length) {
+                var road = edges[index];
+
+                // Add the current road to the map
+                L.geoJSON(road, {
+                    style: {color: 'blue', weight:  1}
+                }).addTo(map);
+
+                index++;  // Move to the next road
+                requestAnimationFrame(showNextRoad);
+            }
+        }
+        function loadEdgeMap(){
+            for(let i = 0; i < edges.length; i++){
+                edgeMap.set(edges[i].geometry.coordinates[0], edges[i]);
+                document.getElementById("debugLbl").innerHTML = edges[i].geometry.coordinates[0];
+            }
+            
+        }
+    </script>
+</body>
+</html>
