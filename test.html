@@ -34,7 +34,7 @@
         var visited = new Map();
         var nodeDistance = new Map();
         var found = false;
-        function showNextRoad(path, coords){
+        function showNextRoad(path, coords, pathLength = 0){
             var node = nodeDistance.get(coords);
             if(coords == endNode.geometry.coordinates){
                 found = true;
@@ -44,11 +44,12 @@
             if(found) return;
             if(node){
             }
-            if(!node || node.length > path.length){
-                nodeDistance.set(coords, [...path]);
+            if(!node || node[1] > pathLength){
+                nodeDistance.set(coords, [[...path], pathLength]);
             }
-            else if(node && node.length < path.length){
-                path = node;
+            else if(node && node[1] < pathLength){
+                path = node[0];
+                pathLength = node[1];
             }
             edgeMap.get(coords).forEach((road) => {
                 i = 0; //Keep
@@ -58,7 +59,7 @@
                     var roadCoords = road.geometry.coordinates;
                     var newCoords = roadCoords[roadCoords.length - 1][0] + "," + roadCoords[roadCoords.length - 1][1];
                     var newPath = [...path, road];
-                    requestAnimationFrame(function(){showNextRoad(newPath, newCoords)});
+                    requestAnimationFrame(function(){showNextRoad(newPath, newCoords, pathLength + road.properties.length)});
                     i++;
                 }
             })
