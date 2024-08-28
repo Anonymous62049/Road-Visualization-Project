@@ -7,8 +7,8 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 </head>
 <body>
-    <div id="map" style="width: 970px; height: 800px;"></div>
-    <div style="width: 100px; height: 50px; background-color: wheat;display: inline-block;" onclick="showNextRoad([],nodes[0].geometry.coordinates.toString());"></div>
+    <div id="map" style="width: 90vw; height: 800px;"></div>
+    <div style="width: 100px; height: 50px; background-color: wheat;display: inline-block;" onclick="showNextRoad([],nodes[4567].geometry.coordinates.toString());"></div>
     <label id="debugLbl" style="display: inline;"></label>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -23,7 +23,7 @@
         var nodes;
         $.getJSON('nodes.json', function(data){
             nodes = data.features;
-            endNode = nodes[12334];
+            endNode = nodes[8765]; //12334
         })
         // Load the edges JSON data
         $.getJSON('edges.json', function(data) {
@@ -34,16 +34,11 @@
         var visited = new Map();
         var nodeDistance = new Map();
         var found = false;
+        var drawn = false;
         function showNextRoad(path, coords, pathLength = 0){
             var node = nodeDistance.get(coords);
-            if(coords == endNode.geometry.coordinates){
-                found = true;
-                requestAnimationFrame(function(){showRoad(path.length - 1, 'red', path.slice(), 3)});
-                return;
-            }
-            if(found) return;
-            if(node){
-            }
+            if(coords == endNode.geometry.coordinates) found = true;
+            //if(coords == endNode.geometry.coordinates && node) document.getElementById("debugLbl").innerHTML += node[1] + ", " + pathLength + " : ";
             if(!node || node[1] > pathLength){
                 nodeDistance.set(coords, [[...path], pathLength]);
             }
@@ -64,6 +59,11 @@
                 }
             })
             requestAnimationFrame(function(){showRoad(i,'blue', nextRoads)});
+            if(nodeDistance.size + 100 >= nodes.length && found && !drawn){
+                var shortestPath = nodeDistance.get(endNode.geometry.coordinates.toString());
+                requestAnimationFrame(function(){showRoad(shortestPath[1], 'red', shortestPath[0], 3)});
+                drawn = true;
+            }
         }
         function showRoad(roadNum, color, arr, thickness = 1){
             for(let i = 0; i <= roadNum; i++){
@@ -78,10 +78,10 @@
                 var coords = edges[i].geometry.coordinates;
                 var prev = edgeMap.get(coords[0][0] + "," + coords[0][1]);
                 if(prev) prev.push(edges[i]);
-                edgeMap.set(coords[0][0] + "," + coords[0][1], prev ? prev : [edges[i]]);
+                edgeMap.set(coords[0][0] + "," + coords[0][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
                 prev = edgeMap.get(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1]);
                 if(prev) prev.push(edges[i]);
-                edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], prev ? prev : [edges[i]]);
+                edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
             }
         }
     </script>

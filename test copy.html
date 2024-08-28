@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>City Road Network</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+</head>
+<body>
+    <div id="map" style="width: 90vw; height: 800px;"></div>
+    <div style="width: 100px; height: 50px; background-color: wheat; display: inline-block;" onclick="showNextRoad();"></div>
+    <label id="debugLbl" style="display: inline;"></label>
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        class PriorityQueue{
+            constructor(){
+                this.queue = [];
+            }
+            enqueue(element, priority){
+                this.queue.push({element, priority});
+                this.queue.sort((a, b) => a.priority - b.priority);
+                //document.getElementById("debugLbl").innerHTML += this.queue[this.queue.length - 1].priority + ((this.queue.length > 2) ? " : " + this.queue[this.queue.length - 2].priority : "") + " "
+            }
+            dequeue(){
+                if(this.isEmpty()) return null;
+                return this.queue.shift().element;
+            }
+            isEmpty(){
+                return this.queue.length === 0;
+            }
+        }
+        var map = L.map('map').setView([-33.9130293,151.2], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 20,
+        }).addTo(map);
+        var nextRoads = new PriorityQueue();
+        var edges;
+        const edgeMap = new Map();
+        var nodes;
+        var destination;
+        $.getJSON('nodes.json', function(data){
+            nodes = data.features;
+            destination = nodes[375]; //12334
+        })
+        // Load the edges JSON data
+        $.getJSON('edges.json', function(data) {
+            edges = data.features;
+            loadEdgeMap();
+            loadQueue(nodes[2345].geometry.coordinates.toString());
+        });
+        var visited = new Map();
+        function loadQueue(startCoords){
+            edgeMap.get(startCoords).forEach((road) =>{
+                nextRoads.enqueue(road, road.properties.length);
+            });
+        }
+        var roadsToShow = [];
+        var found = false;
+        function showNextRoad(){
+            for(let i = 0; i <= 1; i++){
+                if(found) return;
+                road = nextRoads.dequeue();
+                if(!road) return;
+                roadsToShow.push(road);
+                var roadCoords = road.geometry.coordinates;
+                var endCoords = roadCoords[roadCoords.length - 1][0] + "," + roadCoords[roadCoords.length - 1][1];
+                var endNode = visited.get(endCoords);
+                if(endNode){
+                    requestAnimationFrame(showNextRoad);
+                    return;
+                }
+                var startNode = visited.get(roadCoords[0][0] + "," + roadCoords[0][1]);
+                var distance = startNode ? startNode[1] + road.properties.length: road.properties.length;
+                var path = startNode ? [...startNode[0], road] : [road];
+                visited.set(endCoords,[path, distance]);
+                if(endCoords == destination.geometry.coordinates){
+                    found = true;
+                    requestAnimationFrame(() => {showRoads(path.length, 'red', path, 3)});
+                    return;
+                }
+                edgeMap.get(endCoords).forEach((newRoad) => {
+                    if(road.id != newRoad.id) nextRoads.enqueue(newRoad, distance + newRoad.properties.length);
+                });
+                requestAnimationFrame(() => {showRoads(5, 'blue', roadsToShow)});
+                if(nextRoads.queue.length == 0){
+                }
+                requestAnimationFrame(showNextRoad);
+            }
+        }
+        function showRoads(roadNum, color, arr, thickness = 1){
+            for(let i = 0; i <= roadNum; i++){
+                var road = arr.pop();
+                L.geoJSON(road, {
+                    style: {color: color, weight:  thickness}
+                }).addTo(map);
+            }
+        }
+        function loadEdgeMap(){
+            for(let i = 0; i < edges.length; i++){
+                var coords = edges[i].geometry.coordinates;
+                var prev = edgeMap.get(coords[0][0] + "," + coords[0][1]);
+                if(prev) prev.push(edges[i]);
+                edgeMap.set(coords[0][0] + "," + coords[0][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
+                prev = edgeMap.get(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1]);
+                if(prev) prev.push(edges[i]);
+                edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
+            }
+        }
+    </script>
+</body>
+</html>
