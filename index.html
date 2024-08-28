@@ -8,12 +8,12 @@
 </head>
 <body>
     <div id="map" style="width: 90vw; height: 800px;"></div>
-    <div style="width: 100px; height: 50px; background-color: wheat; display: inline-block;" onclick="showNextRoad();"></div>
+    <div style="width: 100px; height: 50px; background-color: wheat; display: inline-block;" onclick="dijkstraShortestPath();"></div>
     <label id="debugLbl" style="display: inline;"></label>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        class PriorityQueue{
+        class PriorityQueue{ //Sorts elements as they are inserted into array
             constructor(){
                 this.queue = [];
             }
@@ -29,63 +29,66 @@
                 return this.queue.length === 0;
             }
         }
-        var map = L.map('map').setView([-33.9130293,151.2], 10);
+
+        var map = L.map('map').setView([-33.9130293,151.2], 12); //Initialises Map
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 20,
-        }).addTo(map);
-        var nextRoads = new PriorityQueue();
+        }).addTo(map); //Adds the map imagery to the map
+
         var edges;
         const edgeMap = new Map();
         var nodes;
         var destination;
-        $.getJSON('./nodes.json', function(data){
+        var nextRoads = new PriorityQueue();
+        $.getJSON('./nodes.json', function(data){ //Load the node JSON data
             nodes = data.features;
-            destination = nodes[2766]; //12334
-        })
-        // Load the edges JSON data
-        $.getJSON('./edges.json', function(data) {
-            edges = data.features;
-            loadEdgeMap();
-            loadQueue(nodes[52].geometry.coordinates.toString());
+            destination = nodes[2766]; 
         });
-        var visited = new Map();
-        function loadQueue(startCoords){
+        $.getJSON('./edges.json', function(data) { // Load the edges JSON data
+            edges = data.features;
+            loadEdgeMap(); //Fills hashmap with roads
+            loadQueue(nodes[52].geometry.coordinates.toString()); //Loads roads connected to starting node into priority queue
+        });
+        
+        function loadQueue(startCoords){ //Queues starting roads
             edgeMap.get(startCoords).forEach((road) =>{
                 nextRoads.enqueue(road, road.properties.length);
             });
         }
+        var visited = new Map();
         var roadsToShow = [];
         var found = false;
-        function showNextRoad(){
-            for(let i = 0; i <= 1; i++){
+        function dijkstraShortestPath(){ //Finds shortest path
+            for(let i = 0; i <= 1; i++){ //To speed up animation
                 if(found) return;
                 road = nextRoads.dequeue();
                 if(!road) return;
-                roadsToShow.push(road);
+                roadsToShow.push(road); //Adds road to the array to be displayed on the map
                 var roadCoords = road.geometry.coordinates;
-                var endCoords = roadCoords[roadCoords.length - 1][0] + "," + roadCoords[roadCoords.length - 1][1];
+                var endCoords = roadCoords[roadCoords.length - 1][0] + "," + roadCoords[roadCoords.length - 1][1]; //Gets last pair of coordinates
                 var endNode = visited.get(endCoords);
-                if(endNode){
-                    requestAnimationFrame(showNextRoad);
+                if(endNode){ //If the node has been visited
+                    requestAnimationFrame(() => {showRoad('blue', roadsToShow)}); //Show road
+                    requestAnimationFrame(dijkstraShortestPath);
                     return;
                 }
-                var startNode = visited.get(roadCoords[0][0] + "," + roadCoords[0][1]);
-                var distance = startNode ? startNode[1] + road.properties.length: road.properties.length;
-                var path = startNode ? [...startNode[0], road] : [road];
+                var startNode = visited.get(roadCoords[0][0] + "," + roadCoords[0][1]); //Gets the node the road started at
+                var distance = startNode ? startNode[1] + road.properties.length: road.properties.length; //Gets the total distance from the start point to the end of the road
+                var path = startNode ? [...startNode[0], road] : [road]; //Gets and updates the path that's been taken to get to the node at the end of the road
                 visited.set(endCoords,[path, distance]);
-                if(endCoords == destination.geometry.coordinates){
+                if(endCoords == destination.geometry.coordinates){ //If destination is reached
                     found = true;
-                    for(let i = 0; i < path.length; i++) requestAnimationFrame(() => {showRoad('red', path, 3)});
+                    for(let i = 0; i < path.length; i++) requestAnimationFrame(() => {showRoad('red', path, 3)}); //Show shortest path
                     return;
                 }
-                edgeMap.get(endCoords).forEach((newRoad) => {
+                edgeMap.get(endCoords).forEach((newRoad) => { //Queue roads connecting to the node at the end of the current road
                     if(road.id != newRoad.id) nextRoads.enqueue(newRoad, distance + newRoad.properties.length);
                 });
-                requestAnimationFrame(() => {showRoad('blue', roadsToShow)});
-                requestAnimationFrame(showNextRoad);
+                requestAnimationFrame(() => {showRoad('blue', roadsToShow)}); //Show road
+                requestAnimationFrame(dijkstraShortestPath);
             }
         }
-        function showRoad(color, arr, thickness = 1){
+        function showRoad(color, arr, thickness = 1){ //Displays line on map
             var road = arr.pop();
             L.geoJSON(road, {
                 style: {color: color, weight:  thickness}
