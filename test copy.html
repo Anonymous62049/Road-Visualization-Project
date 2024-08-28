@@ -30,7 +30,7 @@
                 return this.queue.length === 0;
             }
         }
-        var map = L.map('map').setView([-33.9130293,151.2], 13);
+        var map = L.map('map').setView([-33.9130293,151.2], 10);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 20,
         }).addTo(map);
@@ -41,13 +41,13 @@
         var destination;
         $.getJSON('nodes.json', function(data){
             nodes = data.features;
-            destination = nodes[375]; //12334
+            destination = nodes[2766]; //12334
         })
         // Load the edges JSON data
         $.getJSON('edges.json', function(data) {
             edges = data.features;
             loadEdgeMap();
-            loadQueue(nodes[2345].geometry.coordinates.toString());
+            loadQueue(nodes[52].geometry.coordinates.toString());
         });
         var visited = new Map();
         function loadQueue(startCoords){
@@ -82,7 +82,7 @@
                 edgeMap.get(endCoords).forEach((newRoad) => {
                     if(road.id != newRoad.id) nextRoads.enqueue(newRoad, distance + newRoad.properties.length);
                 });
-                requestAnimationFrame(() => {showRoads(5, 'blue', roadsToShow)});
+                requestAnimationFrame(() => {showRoads(1, 'blue', roadsToShow)});
                 if(nextRoads.queue.length == 0){
                 }
                 requestAnimationFrame(showNextRoad);
