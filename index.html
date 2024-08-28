@@ -20,7 +20,6 @@
             enqueue(element, priority){
                 this.queue.push({element, priority});
                 this.queue.sort((a, b) => a.priority - b.priority);
-                //document.getElementById("debugLbl").innerHTML += this.queue[this.queue.length - 1].priority + ((this.queue.length > 2) ? " : " + this.queue[this.queue.length - 2].priority : "") + " "
             }
             dequeue(){
                 if(this.isEmpty()) return null;
@@ -39,12 +38,12 @@
         const edgeMap = new Map();
         var nodes;
         var destination;
-        $.getJSON('nodes.json', function(data){
+        $.getJSON('./nodes.json', function(data){
             nodes = data.features;
             destination = nodes[2766]; //12334
         })
         // Load the edges JSON data
-        $.getJSON('edges.json', function(data) {
+        $.getJSON('./edges.json', function(data) {
             edges = data.features;
             loadEdgeMap();
             loadQueue(nodes[52].geometry.coordinates.toString());
@@ -76,35 +75,33 @@
                 visited.set(endCoords,[path, distance]);
                 if(endCoords == destination.geometry.coordinates){
                     found = true;
-                    requestAnimationFrame(() => {showRoads(path.length, 'red', path, 3)});
+                    for(let i = 0; i < path.length; i++) requestAnimationFrame(() => {showRoad('red', path, 3)});
                     return;
                 }
                 edgeMap.get(endCoords).forEach((newRoad) => {
                     if(road.id != newRoad.id) nextRoads.enqueue(newRoad, distance + newRoad.properties.length);
                 });
-                requestAnimationFrame(() => {showRoads(1, 'blue', roadsToShow)});
-                if(nextRoads.queue.length == 0){
-                }
+                requestAnimationFrame(() => {showRoad('blue', roadsToShow)});
                 requestAnimationFrame(showNextRoad);
             }
         }
-        function showRoads(roadNum, color, arr, thickness = 1){
-            for(let i = 0; i <= roadNum; i++){
-                var road = arr.pop();
-                L.geoJSON(road, {
-                    style: {color: color, weight:  thickness}
-                }).addTo(map);
-            }
+        function showRoad(color, arr, thickness = 1){
+            var road = arr.pop();
+            L.geoJSON(road, {
+                style: {color: color, weight:  thickness}
+            }).addTo(map);
         }
         function loadEdgeMap(){
             for(let i = 0; i < edges.length; i++){
-                var coords = edges[i].geometry.coordinates;
-                var prev = edgeMap.get(coords[0][0] + "," + coords[0][1]);
-                if(prev) prev.push(edges[i]);
-                edgeMap.set(coords[0][0] + "," + coords[0][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
-                prev = edgeMap.get(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1]);
-                if(prev) prev.push(edges[i]);
-                edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], prev ? prev.sort(function(a,b){a.properties.length - b.properties.length}) : [edges[i]].sort(function(a,b){a.properties.length - b.properties.length}));
+                var coords = edges[i].geometry.coordinates; //The coordinate array for the road
+                //Return the value in the hashmap for the first set of coordinates in the list. These coordinates will correspond to a node at the start of the road
+                var node = edgeMap.get(coords[0][0] + "," + coords[0][1]); 
+                if(node) node.push(edges[i]); //Append the new edge to the edges already at those coordinates
+                edgeMap.set(coords[0][0] + "," + coords[0][1], node ? node : [edges[i]]); //Update edgemap
+                //Return the value in the hashmap for the last set of coordinates in the list. These coordinates will correspond to a node at the end of the road
+                node = edgeMap.get(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1]);
+                if(node) node.push(edges[i]);
+                edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], node ? node : [edges[i]]);
             }
         }
     </script>
