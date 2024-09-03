@@ -5,10 +5,28 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        .actionButton{
+            width: fit-content;
+            height: fit-content;
+            border: solid black 1px;
+            border-radius: 3px;
+            padding: 5px;
+            margin-bottom: 10px;
+            display: inline-block;
+            background-color: rgb(230, 230, 230);
+        }
+        .actionButton:hover{
+            cursor: pointer;
+        }
+    </style>
 </head>
 <body>
-    <div id="map" style="width: 90vw; height: 800px;"></div>
-    <div style="width: 100px; height: 50px; background-color: wheat; display: inline-block;" onclick="dijkstraShortestPath();"></div>
+    <div class="actionButton" onclick="settingPoint = 'start'">Set Start Point</div>
+    <div class="actionButton" onclick="settingPoint = 'end'">Set End Point</div>
+    <div class="actionButton" onclick="resetMap()">Reset</div>
+    <div id="map" style="width: 98vw; height: 600px;"></div>
+    <div class="actionButton" style="margin-top: 10px;" onclick="dijkstraShortestPath();">Find Shortest Path</div>
     <label id="debugLbl" style="display: inline;"></label>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -28,26 +46,47 @@
             isEmpty(){
                 return this.queue.length === 0;
             }
+            clear(){
+                this.queue = [];
+            }
         }
-
-        var map = L.map('map').setView([-33.9130293,151.2], 12); //Initialises Map
+        var mapCoords = [-33.9130293,151.2];
+        var mapRadius = 20000;
+        var map = L.map('map').setView(mapCoords, 12); //Initialises Map
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 20,
         }).addTo(map); //Adds the map imagery to the map
+        var latitudeOffset = mapRadius / 111000; // 111 km per degree latitude
+        var longitudeOffset = mapRadius / (111000 * Math.cos(mapCoords[0] * Math.PI / 180));
 
+        // Calculate the square's corners
+        var squareCorners = [
+            [mapCoords[0] + latitudeOffset, mapCoords[1] - longitudeOffset], // Top-left
+            [mapCoords[0] + latitudeOffset, mapCoords[1] + longitudeOffset], // Top-right
+            [mapCoords[0] - latitudeOffset, mapCoords[1] + longitudeOffset], // Bottom-right
+            [mapCoords[0] - latitudeOffset, mapCoords[1] - longitudeOffset]  // Bottom-left
+        ];
+
+        // Create a square (polygon) and add it to the map
+        var square = L.polygon(squareCorners, {
+            color: '#2396e8',      // Border color of the square
+            fillColor: '#2396e880', // Fill color of the square
+            fillOpacity: 0.5   // Fill opacity of the square
+        }).addTo(map);
         var edges;
         const edgeMap = new Map();
         var nodes;
         var destination;
+        var startNode;
         var nextRoads = new PriorityQueue();
         $.getJSON('./nodes.json', function(data){ //Load the node JSON data
             nodes = data.features;
-            destination = nodes[2766]; 
+            destination = nodes[15000]; 
         });
         $.getJSON('./edges.json', function(data) { // Load the edges JSON data
             edges = data.features;
             loadEdgeMap(); //Fills hashmap with roads
-            loadQueue(nodes[52].geometry.coordinates.toString()); //Loads roads connected to starting node into priority queue
+            loadQueue(nodes[0].geometry.coordinates.toString()); //Loads roads connected to starting node into priority queue
         });
         
         function loadQueue(startCoords){ //Queues starting roads
@@ -88,11 +127,12 @@
                 requestAnimationFrame(dijkstraShortestPath);
             }
         }
+        var lines = L.layerGroup().addTo(map);
         function showRoad(color, arr, thickness = 1){ //Displays line on map
             var road = arr.pop();
             L.geoJSON(road, {
                 style: {color: color, weight:  thickness}
-            }).addTo(map);
+            }).addTo(lines);
         }
         function loadEdgeMap(){
             for(let i = 0; i < edges.length; i++){
@@ -106,6 +146,40 @@
                 if(node) node.push(edges[i]);
                 edgeMap.set(coords[coords.length - 1][0] + "," + coords[coords.length - 1][1], node ? node : [edges[i]]);
             }
+        }
+        var settingPoint;
+        map.on('click', function(e){
+            if(settingPoint == "") return;
+            var coord = e.latlng;
+            var closestNode = getClosestNode(coord.lat, coord.lng);
+            if(settingPoint == 'start') {
+                nextRoads.clear();
+                loadQueue(closestNode.geometry.coordinates.toString());
+                startNode = closestNode;
+            }
+            else if(settingPoint =='end') destination = closestNode;
+            settingPoint = "";
+        });
+        function getClosestNode(lat, lng){
+            var closestNode;
+            var smallestDist = [Infinity, Infinity];
+            nodes.forEach((node) => {
+                var difference = [Math.abs(node.geometry.coordinates[0] - lng), Math.abs(node.geometry.coordinates[1] - lat)];
+                if(difference[0] < smallestDist[0] && difference[1] < smallestDist[1]){
+                    smallestDist = difference;
+                    closestNode = node;
+                }
+            });
+            return closestNode;
+        }
+        function resetMap(){
+            map.removeLayer(lines);
+            lines = L.layerGroup().addTo(map);
+            found = false;
+            nextRoads.clear();
+            loadQueue(startNode.geometry.coordinates.toString());
+            visited = new Map();
+            roadsToShow = [];
         }
     </script>
 </body>
