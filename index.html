@@ -22,12 +22,20 @@
     </style>
 </head>
 <body>
-    <div class="actionButton" onclick="settingPoint = 'start'">Set Start Point</div>
+    <div input="button" class="actionButton" onclick="settingPoint = 'start'">Set Start Point</div>
     <div class="actionButton" onclick="settingPoint = 'end'">Set End Point</div>
     <div class="actionButton" onclick="resetMap()">Reset</div>
+    
     <div id="map" style="width: 98vw; height: 600px;"></div>
     <div class="actionButton" style="margin-top: 10px;" onclick="dijkstraShortestPath();">Find Shortest Path</div>
     <label id="debugLbl" style="display: inline;"></label>
+    <fieldset style="border: none; display: inline-block; margin: 0; padding: 0; top: 10px; position: relative;">
+        <input type="checkbox" checked id="showBlueRoads" onchange="showHideLayer(cityRoadsLayer, document.getElementById('showBlueRoads'))">
+        <label>Show Traversed Roads</label><br>
+        <input type="checkbox" checked id="showShortest" onchange="showHideLayer(shortestPathLayer, document.getElementById('showShortest'))">
+        <label>Show Shortest Path</label>
+    </fieldset>
+
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
@@ -107,7 +115,7 @@
                 var endCoords = roadCoords[roadCoords.length - 1][0] + "," + roadCoords[roadCoords.length - 1][1]; //Gets last pair of coordinates
                 var endNode = visited.get(endCoords);
                 if(endNode){ //If the node has been visited
-                    requestAnimationFrame(() => {showRoad('blue', roadsToShow)}); //Show road
+                    requestAnimationFrame(() => {showRoad(cityRoadsLayer, 'blue', roadsToShow)}); //Show road
                     requestAnimationFrame(dijkstraShortestPath);
                     return;
                 }
@@ -117,22 +125,23 @@
                 visited.set(endCoords,[path, distance]);
                 if(endCoords == destination.geometry.coordinates){ //If destination is reached
                     found = true;
-                    for(let i = 0; i < path.length; i++) requestAnimationFrame(() => {showRoad('red', path, 3)}); //Show shortest path
+                    for(let i = 0; i < path.length; i++) requestAnimationFrame(() => {showRoad(shortestPathLayer, 'red', path, 3, 0)}); //Show shortest path
                     return;
                 }
                 edgeMap.get(endCoords).forEach((newRoad) => { //Queue roads connecting to the node at the end of the current road
                     if(road.id != newRoad.id) nextRoads.enqueue(newRoad, distance + newRoad.properties.length);
                 });
-                requestAnimationFrame(() => {showRoad('blue', roadsToShow)}); //Show road
+                requestAnimationFrame(() => {showRoad(cityRoadsLayer, 'blue', roadsToShow)}); //Show road
                 requestAnimationFrame(dijkstraShortestPath);
             }
         }
-        var lines = L.layerGroup().addTo(map);
-        function showRoad(color, arr, thickness = 1){ //Displays line on map
+        var cityRoadsLayer = L.layerGroup().addTo(map);
+        var shortestPathLayer = L.layerGroup().addTo(map);
+        function showRoad(layer, color, arr, thickness = 1, z_index = 1){ //Displays line on map
             var road = arr.pop();
             L.geoJSON(road, {
-                style: {color: color, weight:  thickness}
-            }).addTo(lines);
+                style: {color: color, weight:  thickness, zIndex: z_index}
+            }).addTo(layer);
         }
         function loadEdgeMap(){
             for(let i = 0; i < edges.length; i++){
@@ -173,13 +182,19 @@
             return closestNode;
         }
         function resetMap(){
-            map.removeLayer(lines);
-            lines = L.layerGroup().addTo(map);
+            map.removeLayer(cityRoadsLayer);
+            map.removeLayer(shortestPathLayer);
+            cityRoadsLayer = L.layerGroup().addTo(map);
+            shortestPathLayer = L.layerGroup().addTo(map);
             found = false;
             nextRoads.clear();
             loadQueue(startNode.geometry.coordinates.toString());
             visited = new Map();
             roadsToShow = [];
+        }
+        function showHideLayer(layer, object){
+            if(!object.checked) map.removeLayer(layer);
+            else layer.addTo(map);
         }
     </script>
 </body>
