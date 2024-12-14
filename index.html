@@ -5,6 +5,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link href='https://fonts.googleapis.com/css?family=Roboto' rel='stylesheet'>
     <style>
         .actionButton{
             width: fit-content;
@@ -31,6 +32,8 @@
         }
         body{
             margin: 0;
+            font-size: 16pt;
+            font-family: "Roboto";
         }
         body::before{
             content: "Click point on map";
@@ -44,7 +47,7 @@
             color: white;
             font-weight: bold;
             font-size: 16pt;
-            font-family: sans-serif;
+            font-family: "Roboto";
             padding-top: 100px;
         }
         body.mapFocus::before{
@@ -81,7 +84,7 @@
         </fieldset>
     </fieldset>
     
-    <div id="map" style="width: 100%; height: 75vh;"></div>
+    <div id="map" style="width: 100%; height: 65vh;"></div>
     <div class="actionButton" style="margin-top: 10px;" onclick="dijkstraShortestPath();">Find Shortest Path</div>
     <label id="debugLbl" style="display: inline;"></label>
     <fieldset class="inputs" style="display: inline-block; top: 10px;">
