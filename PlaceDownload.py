@@ -1,5 +1,4 @@
 import osmnx as ox
-import json
 bbox = 151, 151.4, -33.7, -34.1
 # Get the road network for a specific location
 G = ox.graph_from_point((-33.9130293,151.2), dist=20000, dist_type="bbox", network_type="drive")

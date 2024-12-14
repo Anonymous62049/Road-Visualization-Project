@@ -12,7 +12,7 @@
             border: solid black 1px;
             border-radius: 3px;
             padding: 5px;
-            margin-bottom: 10px;
+            margin: 10px 0 10px 10px;
             display: inline-block;
             background-color: rgb(230, 230, 230);
         }
@@ -21,27 +21,57 @@
         }
         .inputs{
             border: none;
-            margin: 0; 
+            margin: 0 0 0 10px; 
             padding: 0; 
             position: relative;
+        }
+        #map{
+            z-index: 2;
+            margin-top: 10px;
+        }
+        body{
+            margin: 0;
+        }
+        body::before{
+            content: "Click point on map";
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(44, 44, 44, 0.784);
+            z-index: 1;
+            display: none;
+            text-align: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16pt;
+            font-family: sans-serif;
+            padding-top: 100px;
+        }
+        body.mapFocus::before{
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div input="button" class="actionButton" onclick="settingPoint = 'start'">Set Start Point</div>
-    <div class="actionButton" onclick="settingPoint = 'end'">Set End Point</div>
+    <div input="button" class="actionButton" onclick="settingPoint = 'start'; document.body.classList = 'mapFocus'">Set Start Point</div>
+    <div class="actionButton" onclick="settingPoint = 'end'; document.body.classList = 'mapFocus'">Set End Point</div>
     <div class="actionButton" onclick="resetMap()">Reset</div>
-    <fieldset class="inputs" style="display: grid; grid-template-columns: 1fr 1fr; width: 100%;"></fieldset>
-        <strong>A* Heuristic Factors</strong>
-        <fieldset class="inputs">
+    <fieldset class="inputs"></fieldset>
+        <fieldset class="inputs"  style="margin-bottom: 20px;">
+            <input type="radio" id="dijkstra" name="mode" onchange="changeMode()">
+            <label for="dijkstra">Dijkstra's Algorithm</label><br>
+            <input type="radio" id="a*" name="mode" checked onchange="changeMode()">
+            <label for="a*">A* Algorithm</label><br>
+        </fieldset>
+        <fieldset class="inputs" id="factors">
+            <strong>A* Heuristic Factors</strong><br>
             <label for="shortDist">Distance from starting node</label>
             <input type="range" id="shortDist" min="1" max="1000" value="100" oninput="document.getElementById('shortDistLbl').innerHTML = 'Distance / ' + this.value">
             <label id="shortDistLbl">Distance / 100</label><br>
             <label for="euclDist">Distance to destination node</label>
             <input type="range" id="euclDist" min="0" max="3000" step='50' value="700" oninput="document.getElementById('euclDistLbl').innerHTML = 'Distance * ' + this.value">
             <label id="euclDistLbl">Distance * 700</label>
-        </fieldset>
-        <fieldset class="inputs">
+            <br>
             <label for="turns">Less turns preference</label>
             <input type="range" id="turns" value="0.005" min="0" max="1" step="0.001" oninput="document.getElementById('turnsLbl').innerHTML = 'Difference in angle * ' + this.value">
             <label id="turnsLbl">Difference in angle * 0.007</label><br>
@@ -51,7 +81,7 @@
         </fieldset>
     </fieldset>
     
-    <div id="map" style="width: 98vw; height: 70vh;"></div>
+    <div id="map" style="width: 100%; height: 75vh;"></div>
     <div class="actionButton" style="margin-top: 10px;" onclick="dijkstraShortestPath();">Find Shortest Path</div>
     <label id="debugLbl" style="display: inline;"></label>
     <fieldset class="inputs" style="display: inline-block; top: 10px;">
@@ -64,7 +94,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script>
-        class PriorityQueue{ //Sorts elements as they are inserted into array
+        class PriorityQueue{ //Will be updated to a min heap at some point
             constructor(){
                 this.queue = [];
             }
@@ -85,7 +115,7 @@
         }
         var mapCoords = [-33.9130293,151.2];
         var mapRadius = 20000;
-        var map = L.map('map').setView(mapCoords, 10); //Initialises Map
+        var map = L.map('map').setView(mapCoords, 11); //Initialises Map
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 20,
         }).addTo(map); //Adds the map imagery to the map
@@ -208,6 +238,7 @@
             if(settingPoint == "") return;
             var coord = e.latlng;
             var closestNode = getClosestNode(coord.lat, coord.lng);
+            document.body.classList = "";
             if(settingPoint == 'start') {
                 nextRoads.clear();
                 loadQueue(closestNode.geometry.coordinates.toString());
@@ -245,6 +276,10 @@
             return (Math.atan2(coordsA[0] - coordsB[0], coordsA[1] - coordsB[1])) * 180 / Math.PI;
         }
         function resetMap(){
+            if(roadsToShow.length != 0 && !found){
+                alert("Cannot reset while running");
+                return;
+            };
             map.removeLayer(cityRoadsLayer);
             map.removeLayer(shortestPathLayer);
             cityRoadsLayer = L.layerGroup().addTo(map);
@@ -260,6 +295,35 @@
         function showHideLayer(layer, object){
             if(!object.checked) map.removeLayer(layer);
             else layer.addTo(map);
+        }
+        var prevStartDistFactor = 100;
+        var prevEuclidianFactor = 700;
+        var prevTurnsFactor = 0.007;
+        var prevLengthFactor = 0.005;
+        changeMode();
+        function changeMode(){
+            shortDist = document.getElementById("shortDist");
+            euclDist = document.getElementById("euclDist");
+            turns = document.getElementById("turns");
+            roadLength = document.getElementById("roadLength");
+            if(document.getElementById("a*").checked){
+                document.getElementById("factors").style.display = "block"
+                shortDist.value = prevStartDistFactor;
+                euclDist.value = prevEuclidianFactor;
+                turns.value = prevTurnsFactor;
+                roadLength.value = prevLengthFactor;
+            }
+            else{
+                document.getElementById("factors").style.display = "none";
+                prevStartDistFactor = shortDist.value;
+                prevEuclidianFactor = euclDist.value;
+                prevTurnsFactor = turns.value;
+                prevLengthFactor = roadLength.value;
+                shortDist.value = 1;
+                euclDist.value = 0;
+                turns.value = 0;
+                roadLength.value = 0;
+            }
         }
     </script>
 </body>
